@@ -1,0 +1,10 @@
+#!/usr/bin/env julia
+
+fox_dir = Pkg.dir("Fox")
+
+include(joinpath(fox_dir, "src/Fox.jl"))
+using Fox
+
+Logging.configure(level=Logging.INFO)
+
+run()
