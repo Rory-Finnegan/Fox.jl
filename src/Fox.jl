@@ -75,6 +75,9 @@ function run(cmd_args=ARGS)
             playground_path = joinpath(pwd(), ".fox", found))
             pg_config = Playground.PlaygroundConfig(config, playground_path, "")
 
+            # Make sure the default_shell is set to
+            pg_config.default_shell = "/bin/sh"
+
             create(
                 config;
                 dir=playground_path,

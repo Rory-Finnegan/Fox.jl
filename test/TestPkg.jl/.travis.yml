@@ -1,0 +1,14 @@
+language: julia
+os:
+  - linux
+  - osx
+julia:
+  - 0.4
+notifications:
+  email: false
+# Pretty standard script, but we also manually download a package that isn't
+# on METADATA.
+script:
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia -e 'Pkg.clone("https://github.com/JuliaDB/DBI.jl")'
+  - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.test("TestPkg"; coverage=true)'

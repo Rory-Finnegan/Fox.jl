@@ -6,13 +6,17 @@ A package for running tests in julia playgrounds like tox does with virtualenvs.
 `.travis.yml` in your project root directory. Alternatively, you can place the julia and script sections in a `fox.yml` file, which will take priority when running `fox`.
 
 
-== Installation ==
+Installation
+--------------
 Install the julia package
 ```shell
 julia> Pkg.clone("https://github.com/Rory-Finnegan/Fox.jl")
 ```
 
-== Usage ==
+Usage
+--------
+
+Warning: `fox` will run all the commands in the `script` section of your `.travis.yml` file, so make sure you're are comfortable with what is stored there. If you would only like to run a "safe" subset of those commands on your development machine you should place them in a separate `fox.yml` file.
 
 ```shell
 fox
