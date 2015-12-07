@@ -12,6 +12,7 @@ script:
   - julia -e 'Pkg.clone("https://github.com/Rory-Finnegan/Playground.jl")'
   - julia -e 'Pkg.checkout("Playground", "dev")'
   - julia -e 'Pkg.build("Playground")'
+  - ~/.playground/bin/playground install link $(which julia) --labels julia-0.4
   - julia -e 'Pkg.clone(pwd()); Pkg.build("Fox"); Pkg.test("Fox"; coverage=true)'
 after_success:
   - julia -e 'cd(Pkg.dir("Fox")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
