@@ -8,9 +8,10 @@ notifications:
   email: false
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia -e 'Pkg.init()';
+  - julia -e 'Pkg.init()'
   - julia -e 'Pkg.clone("https://github.com/Rory-Finnegan/Playground.jl")'
   - julia -e 'Pkg.checkout("Playground", "dev")'
   - julia -e 'Pkg.build("Playground")'
   - julia -e 'Pkg.clone(pwd()); Pkg.build("Fox"); Pkg.test("Fox"; coverage=true)'
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("Fox"); Pkg.test("Fox"; coverage=true)'
+after_success:
+  - julia -e 'cd(Pkg.dir("Fox")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
