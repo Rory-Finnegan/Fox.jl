@@ -1,4 +1,5 @@
 julia 0.4
+Playground 0.0.5
 ArgParse
 Logging
 YAML
