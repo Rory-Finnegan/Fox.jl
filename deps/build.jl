@@ -1,6 +1,6 @@
 using Logging
 
-Logging.configure(level=Logging.INFO)
+Logging.configure(output=STDOUT, level=Logging.INFO)
 
 # For now just have the build script tell the user to add fox to their path.
 # Later it could try adding it to /usr/local/bin or a user directory on the path if they

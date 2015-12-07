@@ -5,14 +5,13 @@ using ArgParse
 import Logging
 import YAML: load
 
-export run
 
-
-PLAYGROUND_CONFIG = joinpath(homedir(), ".playground", "config.yml")
+PLAYGROUND_CONFIG_PATH = joinpath(homedir(), ".playground")
+PLAYGROUND_CONFIG_FILE = joinpath(PLAYGROUND_CONFIG_PATH, "config.yml")
 
 
 function run(cmd_args=ARGS)
-    config = load_config(PLAYGROUND_CONFIG)
+    config = load_config(PLAYGROUND_CONFIG_FILE, PLAYGROUND_CONFIG_PATH)
     parse_settings = ArgParseSettings(suppress_warnings=true)
 
     @add_arg_table parse_settings begin
@@ -55,14 +54,17 @@ function run(cmd_args=ARGS)
 
     found = AbstractString[]
     for j in julia_versions
+        Logging.debug(j)
         found = ""
 
         for v in readdir(config.dir.bin)
             # Split on "-" cause Playground.jl suggests labelling
             # julia versions as julia-0.4 rather than just 0.4
+            Logging.debug(v)
             extracted = split(v, "-")
+            Logging.debug(extracted)
 
-            if v == j || (length(extracted) == 1 && extracted[2] == j)
+            if v == j || (length(extracted) == 2 && extracted[2] == string(j))
                 found = v
             end
         end
@@ -72,12 +74,18 @@ function run(cmd_args=ARGS)
         else
             # Process tests for julia version
             # Create the playground
-            playground_path = joinpath(pwd(), ".fox", found))
+            playground_path = joinpath(pwd(), ".fox", found)
             pg_config = Playground.PlaygroundConfig(config, playground_path, "")
 
             # Make sure the default_shell is set to
             pg_config.default_shell = "/bin/sh"
 
+            if ispath(playground_path)
+                Logging.info("Cleaning existing playground $found ...")
+                rm(config; dir=playground_path)
+            end
+
+            Logging.info("Building test playground $found ...")
             create(
                 config;
                 dir=playground_path,
@@ -103,15 +111,17 @@ function run(cmd_args=ARGS)
                             write(fstream, pkg_name)
                         end
 
-                        execute(config, `julie -e 'Pkg.resolve()'`, dir=playground_path)
+                        execute(config, `julia -e 'Pkg.resolve()'`, dir=playground_path)
                         cmd_str = replace(cmd_str, "Pkg.clone(pwd());", "")
                     end
                 end
-                execute(
-                    config,
-                    `$(Base.shell_split(cmd_str))`;
-                    dir=playground_path
-                )
+                if !contains(cmd_str, "git fetch --unshallow")
+                    execute(
+                        config,
+                        `$(Base.shell_split(cmd_str))`;
+                        dir=playground_path
+                    )
+                end
             end
         end
     end
