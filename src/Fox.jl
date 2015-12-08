@@ -2,6 +2,7 @@ module Fox
 
 using Playground
 using ArgParse
+using URIParser
 import Logging
 import YAML: load
 
@@ -80,10 +81,10 @@ function run(cmd_args=ARGS)
             # Make sure the default_shell is set to
             pg_config.default_shell = "/bin/sh"
 
-            if ispath(playground_path)
-                Logging.info("Cleaning existing playground $found ...")
-                rm(config; dir=playground_path)
-            end
+            # if ispath(playground_path)
+            #     Logging.info("Cleaning existing playground $found ...")
+            #     rm(config; dir=playground_path)
+            # end
 
             Logging.info("Building test playground $found ...")
             create(
@@ -92,29 +93,76 @@ function run(cmd_args=ARGS)
                 julia=found
             )
 
+            # Start setting up the current package in the playground
+            # by 1) making a symlink 2) adding it to the REQUIRE file
+            # and 3) calling Pkg.resolve()
+
+            # Get current package name
+            pkg_name = replace(basename(pwd()), ".jl", "")
+
+            # Get the playground package version path
+            pkg_path = ""
+            for vpath in readdir(pg_config.pkg_path)
+                if contains(found, strip(vpath, 'v'))
+                    pkg_path = joinpath(pg_config.pkg_path, vpath)
+                end
+            end
+
+            # Update the REQUIRE file
+            if pkg_path != ""
+                Playground.mklink(pwd(), joinpath(pkg_path, pkg_name))
+                open(joinpath(pkg_path, "REQUIRE"), "w+") do fstream
+                    existing = readall(fstream)
+                    if !contains(existing, pkg_name)
+                        write(fstream, "$pkg_name\n")
+                    end
+                end
+
+                # Call resolve
+                execute(config, `julia -e 'Pkg.resolve()'`, dir=playground_path)
+            end
+
             # We'll need to update `execute` in Playground
             # to return the status code.
             for entry in settings["script"]
                 cmd_str = entry
-                if contains(cmd_str, "Pkg.clone(pwd());")
-                    pkg_name = replace(basename(pwd()), ".jl", "")
-                    pkg_path = ""
-                    for vpath in readdir(pg_config.pkg_path)
-                        if contains(found, strip(vpath, 'v'))
-                            pkg_path = joinpath(pg_config.pkg_path, vpath)
-                        end
-                    end
 
-                    if pkg_path != ""
-                        Playground.mklink(pwd(), joinpath(pkg_path, pkg_name))
-                        open(joinpath(pkg_path, "REQUIRE"), "a+") do fstream
-                            write(fstream, pkg_name)
-                        end
+                # Handle the gross Pkg.clone conditions cause
+                # duplicate runs will result in an error cause of cloning
+                # a pkg that already exists.
+                # This should probably be done in a more robust way...
+                # Once we refactor in the future this should be its own function
+                # and tested like crazy.
+                if contains(cmd_str, "Pkg.clone(pwd())")
+                    Logging.info("Ignoring clone of pwd as it has already been linked.")
+                    cmd_str = replace(cmd_str, "Pkg.clone(pwd())", "")
+                elseif contains(cmd_str, "Pkg.clone")
+                    # Match against all 'Pkg.clone()'s
+                    Logging.debug("Has 'Pkg.clone...' in it cmd_str")
 
-                        execute(config, `julia -e 'Pkg.resolve()'`, dir=playground_path)
-                        cmd_str = replace(cmd_str, "Pkg.clone(pwd());", "")
+                    for sub_str in matchall(r"Pkg.clone\(\"(.*?(?=\"))\"\)", cmd_str)
+                        Logging.debug(sub_str)
+
+                        # Extract the url
+                        grps = match(r"Pkg.clone\(\"(.*?(?=\"))\"\)", sub_str).captures
+                        Logging.debug(grps)
+
+                        # Assuming we've extracted the url, extract the pkg name
+                        # and add a check if the Pkg is available before running the line.
+                        if grps != nothing && length(grps) == 1
+                            remote_pkg_name = replace(basename(URI(grps[1]).path), ".jl", "")
+                            new_clone = "try Pkg.available(\"$(remote_pkg_name)\") catch $sub_str end"
+
+                            Logging.debug("Replacing $sub_str with $new_clone")
+                            cmd_str = replace(
+                                cmd_str,
+                                sub_str,
+                                new_clone
+                            )
+                        end
                     end
                 end
+
                 if !contains(cmd_str, "git fetch --unshallow")
                     execute(
                         config,

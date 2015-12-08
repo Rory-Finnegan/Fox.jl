@@ -13,6 +13,6 @@ println("Running tests...")
 cd(joinpath(pwd(), "TestPkg.jl"))
 println("Running fox in $(pwd())...")
 
-Logging.configure(output=STDOUT, level=Logging.INFO)
+Logging.configure(output=STDOUT, level=Logging.DEBUG)
 Fox.run([])
 
